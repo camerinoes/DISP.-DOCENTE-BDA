@@ -43,19 +43,25 @@ from datetime import date as _date
 _EXPIRACION = _date(2026, 7, 31)
 _CODIGO_VALIDO = st.secrets.get("ACCESS_CODE", "") if hasattr(st, "secrets") else ""
 
-if _CODIGO_VALIDO:  # solo activar si hay código configurado en Secrets
-    if _date.today() > _EXPIRACION:
-        st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
-        st.stop()
+_ADMIN_CODE = st.secrets.get("ADMIN_CODE", "") if hasattr(st, "secrets") else ""
 
+if _CODIGO_VALIDO or _ADMIN_CODE:  # solo activar si hay códigos configurados
     if not st.session_state.get("_acceso_ok"):
         st.title("📅 Disponibilidad Docente — BDA Analytics")
         st.markdown("#### Ingresa tu código de acceso")
         codigo_input = st.text_input("Código", type="password", placeholder="Escribe el código que te enviaron")
         if st.button("Ingresar", type="primary"):
-            if codigo_input.strip() == _CODIGO_VALIDO:
+            codigo = codigo_input.strip()
+            if _ADMIN_CODE and codigo == _ADMIN_CODE:
+                # Admin: acceso ilimitado, sin expiración
                 st.session_state["_acceso_ok"] = True
                 st.rerun()
+            elif codigo == _CODIGO_VALIDO:
+                if _date.today() > _EXPIRACION:
+                    st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
+                else:
+                    st.session_state["_acceso_ok"] = True
+                    st.rerun()
             else:
                 st.error("Código incorrecto. Verifica con BDA Analytics.")
         st.stop()
