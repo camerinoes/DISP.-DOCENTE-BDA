@@ -37,6 +37,29 @@ def horas_solapan(h1, h2):
 # ── Config ─────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Disponibilidad Docente — BDA", page_icon="📅", layout="wide")
 
+# ── Control de acceso ───────────────────────────────────────────────────────
+from datetime import date as _date
+
+_EXPIRACION = _date(2026, 7, 31)
+_CODIGO_VALIDO = st.secrets.get("ACCESS_CODE", "") if hasattr(st, "secrets") else ""
+
+if _CODIGO_VALIDO:  # solo activar si hay código configurado en Secrets
+    if _date.today() > _EXPIRACION:
+        st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
+        st.stop()
+
+    if not st.session_state.get("_acceso_ok"):
+        st.title("📅 Disponibilidad Docente — BDA Analytics")
+        st.markdown("#### Ingresa tu código de acceso")
+        codigo_input = st.text_input("Código", type="password", placeholder="Escribe el código que te enviaron")
+        if st.button("Ingresar", type="primary"):
+            if codigo_input.strip() == _CODIGO_VALIDO:
+                st.session_state["_acceso_ok"] = True
+                st.rerun()
+            else:
+                st.error("Código incorrecto. Verifica con BDA Analytics.")
+        st.stop()
+
 st.markdown("""
 <style>
   .block-container{padding-top:1.5rem}
