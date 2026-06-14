@@ -151,8 +151,15 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### Chat con IA")
+    # Leer key desde Streamlit Secrets si está configurada (para deploy en la nube)
+    _secret_key = st.secrets.get("ANTHROPIC_API_KEY", "") if hasattr(st, "secrets") else ""
+    if _secret_key and not st.session_state.get("api_key"):
+        st.session_state["api_key"] = _secret_key
+
     api_key = st.text_input("API Key de Anthropic (opcional)", type="password",
-                            help="Para activar el chat en lenguaje natural")
+                            value="",
+                            help="Para activar el chat en lenguaje natural. "
+                                 "Si el administrador configuró la key en Secrets, no necesitas escribirla.")
     if api_key:
         st.session_state["api_key"] = api_key
 
