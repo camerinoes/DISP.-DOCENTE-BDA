@@ -42,28 +42,42 @@ from datetime import date as _date
 
 _EXPIRACION = _date(2026, 7, 31)
 _CODIGO_VALIDO = st.secrets.get("ACCESS_CODE", "") if hasattr(st, "secrets") else ""
-
 _ADMIN_CODE = st.secrets.get("ADMIN_CODE", "") if hasattr(st, "secrets") else ""
 
-if _CODIGO_VALIDO or _ADMIN_CODE:  # solo activar si hay códigos configurados
+if _CODIGO_VALIDO or _ADMIN_CODE:
     if not st.session_state.get("_acceso_ok"):
-        st.title("📅 Disponibilidad Docente — BDA Analytics")
-        st.markdown("#### Ingresa tu código de acceso")
-        codigo_input = st.text_input("Código", type="password", placeholder="Escribe el código que te enviaron")
-        if st.button("Ingresar", type="primary"):
-            codigo = codigo_input.strip()
-            if _ADMIN_CODE and codigo == _ADMIN_CODE:
-                # Admin: acceso ilimitado, sin expiración
-                st.session_state["_acceso_ok"] = True
-                st.rerun()
-            elif codigo == _CODIGO_VALIDO:
-                if _date.today() > _EXPIRACION:
-                    st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
-                else:
+        _, col_c, _ = st.columns([1, 2, 1])
+        with col_c:
+            try:
+                st.image("bda_logo.svg", width=160)
+            except Exception:
+                st.markdown("#### BDA Analytics")
+            st.markdown("## 📅 Disponibilidad Docente")
+            st.markdown(
+                "Plataforma de planificación académica para gestionar "
+                "horarios y disponibilidad de docentes."
+            )
+            st.divider()
+            st.markdown("#### Ingresa tu código de acceso")
+            codigo_input = st.text_input(
+                "Código", type="password",
+                placeholder="Escribe el código que te enviaron",
+                label_visibility="collapsed",
+            )
+            if st.button("Ingresar →", type="primary", use_container_width=True):
+                codigo = codigo_input.strip()
+                if _ADMIN_CODE and codigo == _ADMIN_CODE:
                     st.session_state["_acceso_ok"] = True
                     st.rerun()
-            else:
-                st.error("Código incorrecto. Verifica con BDA Analytics.")
+                elif codigo == _CODIGO_VALIDO:
+                    if _date.today() > _EXPIRACION:
+                        st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
+                    else:
+                        st.session_state["_acceso_ok"] = True
+                        st.rerun()
+                else:
+                    st.error("Código incorrecto. Verifica con BDA Analytics.")
+            st.caption("¿Problemas de acceso? Escríbenos a contacto@bdaanalytics.pe")
         st.stop()
 
 st.markdown("""
@@ -81,6 +95,7 @@ st.markdown("""
   .card-verde{border-left-color:#34A853}
   .chat-user{background:#E8F0FE;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:#1a1a1a}
   .chat-bot{background:#F1F3F4;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:#1a1a1a}
+  .step-header{font-size:0.95rem;font-weight:700;color:#1A3557;margin-top:0.5rem}
 </style>
 """, unsafe_allow_html=True)
 
@@ -114,34 +129,50 @@ def nombre_corto(nombre):
 
 # ── Estado de sesión ───────────────────────────────────────────────────────
 if "datos" not in st.session_state:
-    st.session_state["datos"] = []          # lista de registros procesados
+    st.session_state["datos"] = []
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 
 # ── Sidebar ────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.image("bda_logo.svg", use_container_width=True)
-    st.markdown("### Cargar datos")
+    try:
+        st.image("bda_logo.svg", use_container_width=True)
+    except Exception:
+        st.markdown("**BDA Analytics**")
+
+    st.divider()
+
+    # ── Paso 1: Cargar ──────────────────────────────────────────────────────
+    st.markdown('<p class="step-header">1️⃣ Cargar archivos</p>', unsafe_allow_html=True)
 
     word_files = st.file_uploader(
-        "Word de disponibilidad (.docx) — selección múltiple",
+        "Word de disponibilidad (.docx)",
         type=["docx"], accept_multiple_files=True,
+        help="Selecciona uno o varios archivos Word con los formularios de disponibilidad.",
     )
     zip_file = st.file_uploader(
-        "O sube un ZIP con todos los Word (.zip)",
+        "O sube un ZIP con todos los Word",
         type=["zip"],
+        help="Comprime todos los .docx en un solo ZIP y súbelo aquí.",
     )
-    propuesta_file = st.file_uploader(
-        "Propuesta de horarios (.csv) — opcional",
-        type=["csv"],
-    )
+
+    with st.expander("➕ Propuesta de horarios (opcional)"):
+        propuesta_file = st.file_uploader(
+            "Propuesta de horarios (.csv)",
+            type=["csv"],
+            help="Para detectar conflictos entre la propuesta y la disponibilidad de los docentes.",
+        )
+
+    st.divider()
+
+    # ── Paso 2: Procesar ────────────────────────────────────────────────────
+    st.markdown('<p class="step-header">2️⃣ Procesar</p>', unsafe_allow_html=True)
 
     if st.button("⚡ Procesar archivos", type="primary", use_container_width=True):
         if not word_files and not zip_file:
             st.error("Sube al menos un archivo Word o un ZIP.")
         else:
-            # Recopilar bytes de todos los docx
-            archivos_a_procesar = []  # lista de (nombre, bytes)
+            archivos_a_procesar = []
             for f in word_files:
                 archivos_a_procesar.append((f.name, f.getvalue()))
             if zip_file:
@@ -163,9 +194,7 @@ with st.sidebar:
                 st.session_state["datos"] = registros
                 st.session_state["chat_history"] = []
 
-                # Conflictos si hay propuesta
                 conflictos = []
-                conflictos_bytes = None
                 if propuesta_file:
                     with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as tc:
                         tc.write(propuesta_file.getvalue())
@@ -175,42 +204,55 @@ with st.sidebar:
                     os.unlink(tc_path)
                 st.session_state["conflictos"] = conflictos
 
-            exitosos = sum(1 for r in registros if not r.get("error"))
-            st.success(f"✓ {exitosos} docente(s) procesado(s)")
+            exitosos_sb = sum(1 for r in registros if not r.get("error"))
+            st.success(f"✓ {exitosos_sb} docente(s) procesado(s)")
 
     st.divider()
-    st.markdown("### Chat con IA")
-    # Leer key desde Streamlit Secrets si está configurada (para deploy en la nube)
+
+    # ── Paso 3: Descargar ───────────────────────────────────────────────────
+    st.markdown('<p class="step-header">3️⃣ Descargar resultados</p>', unsafe_allow_html=True)
+
+    if st.session_state["datos"]:
+        datos_ok = [r for r in st.session_state["datos"] if not r.get("error")]
+        if datos_ok:
+            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                exportar_excel(st.session_state["datos"], tmp.name)
+                with open(tmp.name, "rb") as f:
+                    xls_bytes = f.read()
+                os.unlink(tmp.name)
+            st.download_button("📥 Disponibilidad (.xlsx)", xls_bytes,
+                               "disponibilidad.xlsx", use_container_width=True)
+
+            if st.session_state.get("conflictos"):
+                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+                    exportar_conflictos(st.session_state["conflictos"], tmp.name)
+                    with open(tmp.name, "rb") as f:
+                        conf_bytes = f.read()
+                    os.unlink(tmp.name)
+                st.download_button("📥 Conflictos (.xlsx)", conf_bytes,
+                                   "conflictos.xlsx", use_container_width=True)
+    else:
+        st.caption("Procesa archivos para habilitar las descargas.")
+
+    st.divider()
+
+    # ── Chat con IA ─────────────────────────────────────────────────────────
+    st.markdown('<p class="step-header">🤖 Chat con IA</p>', unsafe_allow_html=True)
+
     _secret_key = st.secrets.get("ANTHROPIC_API_KEY", "") if hasattr(st, "secrets") else ""
     if _secret_key and not st.session_state.get("api_key"):
         st.session_state["api_key"] = _secret_key
 
-    api_key = st.text_input("API Key de Anthropic (opcional)", type="password",
-                            value="",
-                            help="Para activar el chat en lenguaje natural. "
-                                 "Si el administrador configuró la key en Secrets, no necesitas escribirla.")
-    if api_key:
-        st.session_state["api_key"] = api_key
-
-    if st.session_state["datos"]:
-        st.divider()
-        # Descargar disponibilidad
-        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-            exportar_excel(st.session_state["datos"], tmp.name)
-            with open(tmp.name, "rb") as f:
-                xls_bytes = f.read()
-            os.unlink(tmp.name)
-        st.download_button("📥 Disponibilidad (.xlsx)", xls_bytes,
-                           "disponibilidad.xlsx", use_container_width=True)
-
-        if st.session_state.get("conflictos"):
-            with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-                exportar_conflictos(st.session_state["conflictos"], tmp.name)
-                with open(tmp.name, "rb") as f:
-                    conf_bytes = f.read()
-                os.unlink(tmp.name)
-            st.download_button("📥 Conflictos (.xlsx)", conf_bytes,
-                               "conflictos.xlsx", use_container_width=True)
+    if st.session_state.get("api_key"):
+        st.success("✓ Chat con IA activado")
+    else:
+        api_key = st.text_input(
+            "API Key de Anthropic",
+            type="password",
+            help="Para activar el chat en lenguaje natural.",
+        )
+        if api_key:
+            st.session_state["api_key"] = api_key
 
 # ── Main ───────────────────────────────────────────────────────────────────
 st.title("📅 Disponibilidad Docente")
@@ -219,11 +261,25 @@ st.caption("BDA Analytics · Universidad de Lima")
 datos = st.session_state["datos"]
 exitosos = [r for r in datos if not r.get("error")]
 
+# ── Estado vacío: bienvenida ────────────────────────────────────────────────
 if not exitosos:
-    st.info("👈 Sube los archivos Word en el panel izquierdo y presiona **Procesar archivos**.")
+    st.markdown("""
+    <div style="background:#F0F4FF;border-radius:12px;padding:1.5rem 2rem;
+                border:1px solid #C5D3F0;margin:1rem 0;text-align:center">
+      <h3 style="color:#1A3557;margin-top:0">👋 Bienvenido/a</h3>
+      <p style="color:#444;margin-bottom:0.5rem">
+        Para comenzar, sube los formularios de disponibilidad en el panel izquierdo.
+      </p>
+      <ol style="text-align:left;color:#555;margin:0.5rem auto;max-width:360px">
+        <li>Carga los archivos Word (.docx) o un ZIP</li>
+        <li>Presiona ⚡ Procesar archivos</li>
+        <li>Explora disponibilidades y descarga resultados</li>
+      </ol>
+    </div>
+    """, unsafe_allow_html=True)
     st.stop()
 
-# Métricas rápidas
+# ── Métricas (solo cuando hay datos) ───────────────────────────────────────
 m1, m2, m3, m4 = st.columns(4)
 todos_cursos = set()
 for r in exitosos:
@@ -238,18 +294,105 @@ m4.metric("Disponibilidades registradas", dias_activos)
 st.divider()
 
 # ── Tabs ───────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs([
-    "👤 Por profesor",
+tab0, tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Resumen general",
+    "👤 Por docente",
     "📚 Por curso",
     "🕐 Por horario",
-    "💬 Preguntar",
+    "✦ Consulta con IA",
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
-# TAB 1 — Por profesor
+# TAB 0 — Resumen general
+# ══════════════════════════════════════════════════════════════════════════
+with tab0:
+    st.subheader("Mapa de disponibilidad general")
+    st.caption("Número de docentes disponibles por día y franja horaria.")
+
+    # Construir matriz: dia × hora → count
+    matriz = {dia: {h: 0 for h in HORAS} for dia in DIAS}
+    for r in exitosos:
+        for dia in DIAS:
+            for h_slot in HORAS:
+                slot_set = hora_a_set(h_slot)
+                for h_doc in r["disponibilidad"].get(dia, []):
+                    if slot_set & hora_a_set(h_doc):
+                        matriz[dia][h_slot] += 1
+                        break
+
+    max_val = max((matriz[d][h] for d in DIAS for h in HORAS), default=1) or 1
+
+    def bg_color(v):
+        if v == 0:
+            return "#F8F9FA"
+        intensity = v / max_val
+        r_c = int(255 - intensity * (255 - 26))
+        g_c = int(255 - intensity * (255 - 53))
+        b_c = int(255 - intensity * (255 - 87))
+        return f"rgb({r_c},{g_c},{b_c})"
+
+    def text_color(v):
+        return "#FFFFFF" if v / max_val > 0.55 else "#1a1a1a"
+
+    header = "".join(
+        f"<th style='padding:6px 10px;text-align:center;background:#1A3557;color:#fff'>{d[:3]}</th>"
+        for d in DIAS
+    )
+    rows = ""
+    for h in HORAS:
+        row_cells = ""
+        for d in DIAS:
+            v = matriz[d][h]
+            bg = bg_color(v)
+            tc = text_color(v)
+            row_cells += (
+                f"<td style='text-align:center;padding:5px 8px;background:{bg};"
+                f"color:{tc};font-weight:600'>{v if v > 0 else '—'}</td>"
+            )
+        rows += (
+            f"<tr><td style='padding:5px 10px;font-size:0.82rem;color:#555;"
+            f"white-space:nowrap'>{h}h</td>{row_cells}</tr>"
+        )
+
+    st.markdown(f"""
+    <div style="overflow-x:auto">
+    <table style="border-collapse:collapse;width:100%;font-size:0.85rem">
+      <thead>
+        <tr>
+          <th style="padding:6px 10px;background:#1A3557;color:#fff">Franja</th>
+          {header}
+        </tr>
+      </thead>
+      <tbody>{rows}</tbody>
+    </table>
+    </div>
+    <p style="font-size:0.78rem;color:#888;margin-top:0.5rem">
+      Valor = número de docentes disponibles en esa franja. Más oscuro = más disponibilidad.
+    </p>
+    """, unsafe_allow_html=True)
+
+    st.divider()
+    st.markdown("#### 🏆 Franjas con mayor disponibilidad")
+    franjas_total = [
+        (matriz[d][h], d, h)
+        for d in DIAS for h in HORAS
+        if matriz[d][h] > 0
+    ]
+    franjas_total.sort(reverse=True)
+
+    if franjas_total:
+        cols = st.columns(min(3, len(franjas_total)))
+        for i, (v, d, h) in enumerate(franjas_total[:3]):
+            with cols[i]:
+                st.metric(f"{d[:3]} · {h}h", f"{v} docentes")
+    else:
+        st.info("Sin datos de disponibilidad registrados.")
+
+# ══════════════════════════════════════════════════════════════════════════
+# TAB 1 — Por docente
 # ══════════════════════════════════════════════════════════════════════════
 with tab1:
-    st.subheader("¿Qué puede enseñar un profesor y cuándo?")
+    st.subheader("¿Qué puede enseñar un docente y cuándo?")
     nombres_lista = sorted([r["nombre"] or r["archivo"] for r in exitosos])
     sel = st.selectbox("Selecciona un docente", ["— elige uno —"] + nombres_lista,
                        key="tab1_profesor")
@@ -288,7 +431,6 @@ with tab1:
 with tab2:
     st.subheader("¿Quién puede enseñar este curso?")
 
-    # Construir índice curso → docentes
     indice_cursos = defaultdict(list)
     for r in exitosos:
         for curso in r["cursos_asignados"]:
@@ -370,14 +512,13 @@ with tab3:
 # TAB 4 — Chat con IA
 # ══════════════════════════════════════════════════════════════════════════
 with tab4:
-    st.subheader("Pregunta en lenguaje natural")
+    st.subheader("Consulta en lenguaje natural")
 
     api_key_activa = st.session_state.get("api_key", "")
 
     if not api_key_activa:
-        st.info("Ingresa tu API Key de Anthropic en el panel izquierdo para activar el chat.")
+        st.info("🔑 Ingresa tu API Key de Anthropic en el panel izquierdo para activar el chat.")
     else:
-        # Construir contexto de datos para el modelo
         def construir_contexto():
             lineas = ["DATOS DE DISPONIBILIDAD DOCENTE:\n"]
             for r in exitosos:
@@ -404,14 +545,12 @@ lo dices claramente.
 
 {construir_contexto()}"""
 
-        # Historial de chat
         for msg in st.session_state["chat_history"]:
             if msg["role"] == "user":
                 st.markdown(f'<div class="chat-user">👤 {msg["content"]}</div>', unsafe_allow_html=True)
             else:
                 st.markdown(f'<div class="chat-bot">🤖 {msg["content"]}</div>', unsafe_allow_html=True)
 
-        # Input
         with st.form("chat_form", clear_on_submit=True):
             pregunta = st.text_input(
                 "Tu pregunta",
@@ -439,7 +578,7 @@ lo dices claramente.
                     )
                     texto = respuesta.content[0].text
                 except ImportError:
-                    texto = "⚠️ Falta instalar la librería anthropic. Abre la Terminal, corre: `pip3 install anthropic` y reinicia la app."
+                    texto = "⚠️ Falta instalar la librería anthropic. Corre: `pip3 install anthropic` y reinicia la app."
                 except Exception as e:
                     texto = f"⚠️ Error: {str(e)}"
 
@@ -451,7 +590,6 @@ lo dices claramente.
                 st.session_state["chat_history"] = []
                 st.rerun()
 
-        # Preguntas de ejemplo
         st.divider()
         st.markdown("**Ejemplos de preguntas:**")
         ejemplos = [
