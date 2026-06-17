@@ -86,7 +86,8 @@ if _CODIGO_VALIDO or _ADMIN_CODE:
 st.markdown(f"""
 <style>
   .block-container{{padding-top:1.5rem}}
-  h1,h2,h3{{color:{NEGRO}}}
+  h1{{color:{NARANJA} !important}}
+  h2,h3{{color:{NEGRO}}}
 
   /* Botones primarios → naranja */
   .stButton > button[kind="primary"] {{
@@ -279,7 +280,7 @@ with st.sidebar:
             st.session_state["api_key"] = api_key
 
 # ── Main ───────────────────────────────────────────────────────────────────
-st.markdown(f'<div style="font-size:2rem;font-weight:800;color:{NARANJA};line-height:1.2;margin-bottom:0.1rem">Disponibilidad Docente</div>', unsafe_allow_html=True)
+st.title("Disponibilidad Docente")
 st.caption("Universidad de Lima")
 
 datos = st.session_state["datos"]
