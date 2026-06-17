@@ -56,7 +56,7 @@ if _CODIGO_VALIDO or _ADMIN_CODE:
                 Disponibilidad Docente
               </div>
               <div style="font-size:0.9rem;color:#666;margin-top:0.3rem">
-                Universidad de Lima · Facultad de Comunicación
+                Universidad de Lima
               </div>
             </div>
             """, unsafe_allow_html=True)
@@ -279,12 +279,8 @@ with st.sidebar:
             st.session_state["api_key"] = api_key
 
 # ── Main ───────────────────────────────────────────────────────────────────
-st.markdown(f"""
-<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:0.2rem">
-  <span style="font-size:1.6rem;font-weight:800;color:{NARANJA}">Disponibilidad Docente</span>
-  <span style="font-size:0.9rem;color:#888">Universidad de Lima · Facultad de Comunicación</span>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(f'<div style="font-size:2rem;font-weight:800;color:{NARANJA};line-height:1.2;margin-bottom:0.1rem">Disponibilidad Docente</div>', unsafe_allow_html=True)
+st.caption("Universidad de Lima")
 
 datos = st.session_state["datos"]
 exitosos = [r for r in datos if not r.get("error")]
