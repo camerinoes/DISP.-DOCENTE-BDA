@@ -1,5 +1,5 @@
 """
-Herramienta de disponibilidad docente — BDA Analytics
+Herramienta de disponibilidad docente — Universidad de Lima
 Corre con: streamlit run app.py
 """
 
@@ -8,12 +8,10 @@ import io, os, re, tempfile, json, zipfile, subprocess, sys
 from pathlib import Path
 from collections import defaultdict
 
-# Asegurar que anthropic esté disponible
 try:
     import anthropic as _anthropic_check
 except ImportError:
     subprocess.run([sys.executable, "-m", "pip", "install", "anthropic", "-q"], check=False)
-
 
 from extractor_disponibilidad import procesar_archivo, exportar_excel
 from detector_conflictos import (
@@ -27,6 +25,10 @@ DIAS  = ["LUNES", "MARTES", "MIÉRCOLES", "JUEVES", "VIERNES", "SÁBADO"]
 HORAS = ["7-8","8-9","9-10","10-11","11-12","12-13","13-14",
          "14-15","15-16","16-17","17-18","18-19","19-20","20-21","21-22"]
 
+NARANJA = "#F05A22"   # naranja Ulima
+NEGRO   = "#1A1A1A"
+GRIS    = "#F5F5F5"
+
 def hora_a_set(txt):
     m = re.match(r"(\d+)\s*[-–]\s*(\d+)", str(txt).strip())
     return set(range(int(m.group(1)), int(m.group(2)))) if m else set()
@@ -35,7 +37,7 @@ def horas_solapan(h1, h2):
     return bool(hora_a_set(h1) & hora_a_set(h2))
 
 # ── Config ─────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Disponibilidad Docente — BDA", page_icon="📅", layout="wide")
+st.set_page_config(page_title="Disponibilidad Docente — U de Lima", page_icon="📅", layout="wide")
 
 # ── Control de acceso ───────────────────────────────────────────────────────
 from datetime import date as _date
@@ -48,17 +50,18 @@ if _CODIGO_VALIDO or _ADMIN_CODE:
     if not st.session_state.get("_acceso_ok"):
         _, col_c, _ = st.columns([1, 2, 1])
         with col_c:
-            try:
-                st.image("bda_logo.svg", width=160)
-            except Exception:
-                st.markdown("#### BDA Analytics")
-            st.markdown("## 📅 Disponibilidad Docente")
-            st.markdown(
-                "Plataforma de planificación académica para gestionar "
-                "horarios y disponibilidad de docentes."
-            )
+            st.markdown(f"""
+            <div style="text-align:center;margin-bottom:1rem">
+              <div style="font-size:2rem;font-weight:800;color:{NARANJA};letter-spacing:-1px">
+                Disponibilidad Docente
+              </div>
+              <div style="font-size:0.9rem;color:#666;margin-top:0.3rem">
+                Universidad de Lima · Facultad de Comunicación
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
             st.divider()
-            st.markdown("#### Ingresa tu código de acceso")
+            st.markdown("**Ingresa tu código de acceso**")
             codigo_input = st.text_input(
                 "Código", type="password",
                 placeholder="Escribe el código que te enviaron",
@@ -71,43 +74,73 @@ if _CODIGO_VALIDO or _ADMIN_CODE:
                     st.rerun()
                 elif codigo == _CODIGO_VALIDO:
                     if _date.today() > _EXPIRACION:
-                        st.error("⏰ Tu período de acceso ha expirado. Contacta a BDA Analytics para renovar.")
+                        st.error("⏰ Tu período de acceso ha expirado.")
                     else:
                         st.session_state["_acceso_ok"] = True
                         st.rerun()
                 else:
-                    st.error("Código incorrecto. Verifica con BDA Analytics.")
-            st.caption("¿Problemas de acceso? Escríbenos a contacto@bdaanalytics.pe")
+                    st.error("Código incorrecto.")
         st.stop()
 
-st.markdown("""
+# ── Estilos globales ────────────────────────────────────────────────────────
+st.markdown(f"""
 <style>
-  .block-container{padding-top:1.5rem}
-  h1,h2,h3{color:#1A3557}
-  .tag{display:inline-block;background:#E8F0FE;color:#1A3557;border-radius:12px;
-       padding:2px 10px;font-size:0.8rem;margin:2px}
-  .tag-curso{background:#FFF0C2;color:#7A5000}
-  .tag-dia{background:#E6F4EA;color:#1E6E3A}
-  .card{background:#F8F9FA;border-radius:10px;padding:1rem 1.2rem;margin-bottom:0.6rem;
-        border-left:4px solid #1A3557;color:#1a1a1a}
-  .card strong{color:#1A3557}
-  .card small{color:#555 !important}
-  .card-verde{border-left-color:#34A853}
-  .chat-user{background:#E8F0FE;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:#1a1a1a}
-  .chat-bot{background:#F1F3F4;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:#1a1a1a}
-  .step-header{font-size:0.95rem;font-weight:700;color:#1A3557;margin-top:0.5rem}
+  .block-container{{padding-top:1.5rem}}
+  h1,h2,h3{{color:{NEGRO}}}
+
+  /* Botones primarios → naranja */
+  .stButton > button[kind="primary"] {{
+    background-color:{NARANJA} !important;
+    border-color:{NARANJA} !important;
+    color:#fff !important;
+  }}
+  .stButton > button[kind="primary"]:hover {{
+    background-color:#d94d1a !important;
+    border-color:#d94d1a !important;
+  }}
+
+  /* Tabs: borde activo naranja */
+  .stTabs [data-baseweb="tab-list"] {{
+    border-bottom: 2px solid #E0E0E0;
+    gap: 0.5rem;
+  }}
+  .stTabs [aria-selected="true"] {{
+    border-bottom: 3px solid {NARANJA} !important;
+    color: {NARANJA} !important;
+    font-weight: 700;
+  }}
+
+  /* Pasos del sidebar */
+  .step-label {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: {NARANJA};
+    color: #fff;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    margin: 0.6rem 0 0.4rem 0;
+  }}
+
+  /* Cards */
+  .tag{{display:inline-block;background:#FFF0E8;color:{NARANJA};border-radius:12px;
+       padding:2px 10px;font-size:0.8rem;margin:2px;border:1px solid #F9C0A8}}
+  .tag-curso{{background:#FFF0E8;color:#C04400}}
+  .card{{background:#FAFAFA;border-radius:10px;padding:1rem 1.2rem;margin-bottom:0.6rem;
+        border-left:4px solid {NEGRO};color:{NEGRO}}}
+  .card strong{{color:{NEGRO}}}
+  .card small{{color:#666 !important}}
+  .card-ok{{border-left-color:{NARANJA}}}
+
+  /* Chat */
+  .chat-user{{background:#FFF0E8;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:{NEGRO}}}
+  .chat-bot{{background:#F5F5F5;border-radius:12px;padding:0.7rem 1rem;margin:0.4rem 0;color:{NEGRO}}}
 </style>
 """, unsafe_allow_html=True)
 
-# ── Helpers de presentación ────────────────────────────────────────────────
-def disp_resumen(disp):
-    partes = []
-    for dia in DIAS:
-        hs = disp.get(dia, [])
-        if hs:
-            partes.append(f"**{dia[:3]}**: {hs[0]}–{hs[-1].split('-')[1]}" if len(hs) > 1 else f"**{dia[:3]}**: {hs[0]}")
-    return "  ·  ".join(partes) if partes else "Sin disponibilidad"
-
+# ── Helpers ────────────────────────────────────────────────────────────────
 def disp_tabla(disp):
     filas = []
     for dia in DIAS:
@@ -119,7 +152,6 @@ def disp_tabla(disp):
     return "| Día | Horas disponibles |\n|---|---|\n" + "\n".join(filas)
 
 def nombre_corto(nombre):
-    """MERINO ESCUZA CAMILA → Camila Merino"""
     if not nombre:
         return "—"
     partes = nombre.strip().split()
@@ -135,42 +167,41 @@ if "chat_history" not in st.session_state:
 
 # ── Sidebar ────────────────────────────────────────────────────────────────
 with st.sidebar:
-    try:
-        st.image("bda_logo.svg", use_container_width=True)
-    except Exception:
-        st.markdown("**BDA Analytics**")
-
+    st.markdown(f"""
+    <div style="font-size:1rem;font-weight:800;color:{NARANJA};
+                letter-spacing:-0.5px;padding:0.5rem 0 0.2rem 0">
+      📅 Disponibilidad Docente
+    </div>
+    <div style="font-size:0.75rem;color:#888;margin-bottom:0.5rem">
+      Universidad de Lima
+    </div>
+    """, unsafe_allow_html=True)
     st.divider()
 
-    # ── Paso 1: Cargar ──────────────────────────────────────────────────────
-    st.markdown('<p class="step-header">1️⃣ Cargar archivos</p>', unsafe_allow_html=True)
+    # ── Paso 1 ──────────────────────────────────────────────────────────────
+    st.markdown('<div class="step-label">1 · Cargar archivos</div>', unsafe_allow_html=True)
 
     word_files = st.file_uploader(
         "Word de disponibilidad (.docx)",
         type=["docx"], accept_multiple_files=True,
-        help="Selecciona uno o varios archivos Word con los formularios de disponibilidad.",
+        help="Selecciona uno o varios formularios Word.",
     )
     zip_file = st.file_uploader(
         "O sube un ZIP con todos los Word",
         type=["zip"],
-        help="Comprime todos los .docx en un solo ZIP y súbelo aquí.",
     )
-
     with st.expander("➕ Propuesta de horarios (opcional)"):
         propuesta_file = st.file_uploader(
             "Propuesta de horarios (.csv)",
             type=["csv"],
-            help="Para detectar conflictos entre la propuesta y la disponibilidad de los docentes.",
         )
 
-    st.divider()
-
-    # ── Paso 2: Procesar ────────────────────────────────────────────────────
-    st.markdown('<p class="step-header">2️⃣ Procesar</p>', unsafe_allow_html=True)
+    # ── Paso 2 ──────────────────────────────────────────────────────────────
+    st.markdown('<div class="step-label">2 · Procesar</div>', unsafe_allow_html=True)
 
     if st.button("⚡ Procesar archivos", type="primary", use_container_width=True):
         if not word_files and not zip_file:
-            st.error("Sube al menos un archivo Word o un ZIP.")
+            st.error("Sube al menos un archivo Word o ZIP.")
         else:
             archivos_a_procesar = []
             for f in word_files:
@@ -207,37 +238,34 @@ with st.sidebar:
             exitosos_sb = sum(1 for r in registros if not r.get("error"))
             st.success(f"✓ {exitosos_sb} docente(s) procesado(s)")
 
-    st.divider()
+    # ── Paso 3 ──────────────────────────────────────────────────────────────
+    st.markdown('<div class="step-label">3 · Descargar resultados</div>', unsafe_allow_html=True)
 
-    # ── Paso 3: Descargar ───────────────────────────────────────────────────
-    st.markdown('<p class="step-header">3️⃣ Descargar resultados</p>', unsafe_allow_html=True)
-
-    if st.session_state["datos"]:
-        datos_ok = [r for r in st.session_state["datos"] if not r.get("error")]
-        if datos_ok:
+    datos_ok = [r for r in st.session_state["datos"] if not r.get("error")]
+    if datos_ok:
+        with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
+            exportar_excel(st.session_state["datos"], tmp.name)
+            with open(tmp.name, "rb") as f:
+                xls_bytes = f.read()
+            os.unlink(tmp.name)
+        st.download_button("📥 Disponibilidad (.xlsx)", xls_bytes,
+                           "disponibilidad.xlsx", use_container_width=True)
+        if st.session_state.get("conflictos"):
             with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-                exportar_excel(st.session_state["datos"], tmp.name)
+                exportar_conflictos(st.session_state["conflictos"], tmp.name)
                 with open(tmp.name, "rb") as f:
-                    xls_bytes = f.read()
+                    conf_bytes = f.read()
                 os.unlink(tmp.name)
-            st.download_button("📥 Disponibilidad (.xlsx)", xls_bytes,
-                               "disponibilidad.xlsx", use_container_width=True)
-
-            if st.session_state.get("conflictos"):
-                with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as tmp:
-                    exportar_conflictos(st.session_state["conflictos"], tmp.name)
-                    with open(tmp.name, "rb") as f:
-                        conf_bytes = f.read()
-                    os.unlink(tmp.name)
-                st.download_button("📥 Conflictos (.xlsx)", conf_bytes,
-                                   "conflictos.xlsx", use_container_width=True)
+            st.download_button("📥 Conflictos (.xlsx)", conf_bytes,
+                               "conflictos.xlsx", use_container_width=True)
     else:
-        st.caption("Procesa archivos para habilitar las descargas.")
+        st.caption("Disponible luego de procesar.")
 
     st.divider()
 
     # ── Chat con IA ─────────────────────────────────────────────────────────
-    st.markdown('<p class="step-header">🤖 Chat con IA</p>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-size:0.8rem;font-weight:700;color:{NEGRO}">🤖 Chat con IA</div>',
+                unsafe_allow_html=True)
 
     _secret_key = st.secrets.get("ANTHROPIC_API_KEY", "") if hasattr(st, "secrets") else ""
     if _secret_key and not st.session_state.get("api_key"):
@@ -246,40 +274,41 @@ with st.sidebar:
     if st.session_state.get("api_key"):
         st.success("✓ Chat con IA activado")
     else:
-        api_key = st.text_input(
-            "API Key de Anthropic",
-            type="password",
-            help="Para activar el chat en lenguaje natural.",
-        )
+        api_key = st.text_input("API Key de Anthropic", type="password")
         if api_key:
             st.session_state["api_key"] = api_key
 
 # ── Main ───────────────────────────────────────────────────────────────────
-st.title("📅 Disponibilidad Docente")
-st.caption("BDA Analytics · Universidad de Lima")
+st.markdown(f"""
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:0.2rem">
+  <span style="font-size:1.6rem;font-weight:800;color:{NARANJA}">Disponibilidad Docente</span>
+  <span style="font-size:0.9rem;color:#888">Universidad de Lima · Facultad de Comunicación</span>
+</div>
+""", unsafe_allow_html=True)
 
 datos = st.session_state["datos"]
 exitosos = [r for r in datos if not r.get("error")]
 
-# ── Estado vacío: bienvenida ────────────────────────────────────────────────
 if not exitosos:
-    st.markdown("""
-    <div style="background:#F0F4FF;border-radius:12px;padding:1.5rem 2rem;
-                border:1px solid #C5D3F0;margin:1rem 0;text-align:center">
-      <h3 style="color:#1A3557;margin-top:0">👋 Bienvenido/a</h3>
-      <p style="color:#444;margin-bottom:0.5rem">
-        Para comenzar, sube los formularios de disponibilidad en el panel izquierdo.
-      </p>
-      <ol style="text-align:left;color:#555;margin:0.5rem auto;max-width:360px">
-        <li>Carga los archivos Word (.docx) o un ZIP</li>
-        <li>Presiona ⚡ Procesar archivos</li>
-        <li>Explora disponibilidades y descarga resultados</li>
-      </ol>
+    st.markdown(f"""
+    <div style="background:{GRIS};border-radius:12px;padding:1.5rem 2rem;
+                border-left:4px solid {NARANJA};margin:1rem 0">
+      <div style="font-weight:700;font-size:1.05rem;color:{NEGRO};margin-bottom:0.5rem">
+        👋 Bienvenido/a
+      </div>
+      <div style="color:#555;font-size:0.9rem">
+        Sigue los pasos del panel izquierdo para comenzar:
+        <ol style="margin:0.5rem 0 0 1rem;padding:0">
+          <li>Carga los archivos Word (.docx) o un ZIP</li>
+          <li>Presiona ⚡ Procesar archivos</li>
+          <li>Explora disponibilidades y descarga resultados</li>
+        </ol>
+      </div>
     </div>
     """, unsafe_allow_html=True)
     st.stop()
 
-# ── Métricas (solo cuando hay datos) ───────────────────────────────────────
+# ── Métricas ────────────────────────────────────────────────────────────────
 m1, m2, m3, m4 = st.columns(4)
 todos_cursos = set()
 for r in exitosos:
@@ -309,7 +338,6 @@ with tab0:
     st.subheader("Mapa de disponibilidad general")
     st.caption("Número de docentes disponibles por día y franja horaria.")
 
-    # Construir matriz: dia × hora → count
     matriz = {dia: {h: 0 for h in HORAS} for dia in DIAS}
     for r in exitosos:
         for dia in DIAS:
@@ -324,18 +352,19 @@ with tab0:
 
     def bg_color(v):
         if v == 0:
-            return "#F8F9FA"
-        intensity = v / max_val
-        r_c = int(255 - intensity * (255 - 26))
-        g_c = int(255 - intensity * (255 - 53))
-        b_c = int(255 - intensity * (255 - 87))
+            return "#F9F9F9"
+        t = v / max_val
+        # blanco → naranja Ulima
+        r_c = int(255 - t * (255 - 240))
+        g_c = int(255 - t * (255 - 90))
+        b_c = int(255 - t * (255 - 34))
         return f"rgb({r_c},{g_c},{b_c})"
 
     def text_color(v):
-        return "#FFFFFF" if v / max_val > 0.55 else "#1a1a1a"
+        return "#FFFFFF" if v / max_val > 0.6 else NEGRO
 
     header = "".join(
-        f"<th style='padding:6px 10px;text-align:center;background:#1A3557;color:#fff'>{d[:3]}</th>"
+        f"<th style='padding:6px 10px;text-align:center;background:{NEGRO};color:#fff'>{d[:3]}</th>"
         for d in DIAS
     )
     rows = ""
@@ -350,7 +379,7 @@ with tab0:
                 f"color:{tc};font-weight:600'>{v if v > 0 else '—'}</td>"
             )
         rows += (
-            f"<tr><td style='padding:5px 10px;font-size:0.82rem;color:#555;"
+            f"<tr><td style='padding:5px 10px;font-size:0.82rem;color:#777;"
             f"white-space:nowrap'>{h}h</td>{row_cells}</tr>"
         )
 
@@ -359,15 +388,15 @@ with tab0:
     <table style="border-collapse:collapse;width:100%;font-size:0.85rem">
       <thead>
         <tr>
-          <th style="padding:6px 10px;background:#1A3557;color:#fff">Franja</th>
+          <th style="padding:6px 10px;background:{NEGRO};color:#fff">Franja</th>
           {header}
         </tr>
       </thead>
       <tbody>{rows}</tbody>
     </table>
     </div>
-    <p style="font-size:0.78rem;color:#888;margin-top:0.5rem">
-      Valor = número de docentes disponibles en esa franja. Más oscuro = más disponibilidad.
+    <p style="font-size:0.78rem;color:#999;margin-top:0.5rem">
+      Naranja intenso = más docentes disponibles en esa franja.
     </p>
     """, unsafe_allow_html=True)
 
@@ -379,7 +408,6 @@ with tab0:
         if matriz[d][h] > 0
     ]
     franjas_total.sort(reverse=True)
-
     if franjas_total:
         cols = st.columns(min(3, len(franjas_total)))
         for i, (v, d, h) in enumerate(franjas_total[:3]):
@@ -394,18 +422,15 @@ with tab0:
 with tab1:
     st.subheader("¿Qué puede enseñar un docente y cuándo?")
     nombres_lista = sorted([r["nombre"] or r["archivo"] for r in exitosos])
-    sel = st.selectbox("Selecciona un docente", ["— elige uno —"] + nombres_lista,
-                       key="tab1_profesor")
+    sel = st.selectbox("Selecciona un docente", ["— elige uno —"] + nombres_lista, key="tab1_profesor")
 
     if sel != "— elige uno —":
         reg = next((r for r in exitosos if (r["nombre"] or r["archivo"]) == sel), None)
         if reg:
-            c1, c2 = st.columns([1, 1])
-
+            c1, c2 = st.columns(2)
             with c1:
                 st.markdown("#### Disponibilidad horaria")
                 st.markdown(disp_tabla(reg["disponibilidad"]))
-
             with c2:
                 st.markdown("#### Cursos")
                 if reg["cursos_asignados"]:
@@ -449,10 +474,9 @@ with tab2:
     if sel_curso != "— elige uno —":
         docentes_curso = indice_cursos[sel_curso]
         st.markdown(f"**{len(docentes_curso)} docente(s)** pueden dictar **{sel_curso}**:")
-
         for reg, tipo in docentes_curso:
-            color = "card-verde" if tipo == "ASIGNADO" else "card"
-            badge = "🟢 Asignado" if tipo == "ASIGNADO" else "🔵 Disponible"
+            color = "card-ok" if tipo == "ASIGNADO" else "card"
+            badge = "🟠 Asignado" if tipo == "ASIGNADO" else "● Disponible"
             nombre_display = (reg["nombre"] or reg["archivo"]).title()
             dias_str = "  ·  ".join(
                 f"{d}: {reg['disponibilidad'][d][0]}–{reg['disponibilidad'][d][-1].split('-')[1]}"
@@ -461,7 +485,7 @@ with tab2:
             st.markdown(f"""
             <div class="card {color}">
               <strong>{nombre_display}</strong> &nbsp; <small>{badge}</small><br>
-              <small style="color:#555">{dias_str}</small>
+              <small style="color:#666">{dias_str}</small>
             </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -477,9 +501,7 @@ with tab3:
         hora_sel = st.selectbox("Franja horaria", HORAS, key="tab3_hora")
 
     hora_set = hora_a_set(hora_sel)
-
-    disponibles = []
-    no_disponibles = []
+    disponibles, no_disponibles = [], []
     for r in exitosos:
         horas_dia = set()
         for h in r["disponibilidad"].get(dia_sel, []):
@@ -490,14 +512,13 @@ with tab3:
             no_disponibles.append(r)
 
     st.markdown(f"**{len(disponibles)}** docente(s) disponibles el **{dia_sel} de {hora_sel}h**:")
-
     if disponibles:
         cols = st.columns(2)
         for i, r in enumerate(disponibles):
             nombre_display = (r["nombre"] or r["archivo"]).title()
             with cols[i % 2]:
                 st.markdown(f"""
-                <div class="card card-verde">
+                <div class="card card-ok">
                   <strong>{nombre_display}</strong>
                 </div>""", unsafe_allow_html=True)
     else:
@@ -517,7 +538,7 @@ with tab4:
     api_key_activa = st.session_state.get("api_key", "")
 
     if not api_key_activa:
-        st.info("🔑 Ingresa tu API Key de Anthropic en el panel izquierdo para activar el chat.")
+        st.info("🔑 Ingresa tu API Key en el panel izquierdo para activar el chat.")
     else:
         def construir_contexto():
             lineas = ["DATOS DE DISPONIBILIDAD DOCENTE:\n"]
@@ -554,22 +575,19 @@ lo dices claramente.
         with st.form("chat_form", clear_on_submit=True):
             pregunta = st.text_input(
                 "Tu pregunta",
-                placeholder="Ej: ¿Quién puede dar Storytelling los martes? ¿Qué horarios tiene libre García Contto?",
+                placeholder="Ej: ¿Quién puede dar Storytelling los martes?",
                 label_visibility="collapsed",
             )
             enviado = st.form_submit_button("Enviar →", use_container_width=True)
 
         if enviado and pregunta.strip():
             st.session_state["chat_history"].append({"role": "user", "content": pregunta})
-
             with st.spinner("Consultando..."):
                 try:
                     import anthropic
                     client = anthropic.Anthropic(api_key=api_key_activa)
-                    messages = [
-                        {"role": m["role"], "content": m["content"]}
-                        for m in st.session_state["chat_history"]
-                    ]
+                    messages = [{"role": m["role"], "content": m["content"]}
+                                for m in st.session_state["chat_history"]]
                     respuesta = client.messages.create(
                         model="claude-haiku-4-5-20251001",
                         max_tokens=1024,
@@ -578,10 +596,9 @@ lo dices claramente.
                     )
                     texto = respuesta.content[0].text
                 except ImportError:
-                    texto = "⚠️ Falta instalar la librería anthropic. Corre: `pip3 install anthropic` y reinicia la app."
+                    texto = "⚠️ Falta instalar anthropic. Corre: `pip3 install anthropic`"
                 except Exception as e:
                     texto = f"⚠️ Error: {str(e)}"
-
             st.session_state["chat_history"].append({"role": "assistant", "content": texto})
             st.rerun()
 
@@ -592,11 +609,10 @@ lo dices claramente.
 
         st.divider()
         st.markdown("**Ejemplos de preguntas:**")
-        ejemplos = [
-            "¿Quién puede dictar Storytelling y en qué horarios está disponible?",
-            "¿Qué cursos puede enseñar el docente Merino y cuándo tiene libre?",
+        for ej in [
+            "¿Quién puede dictar Storytelling y cuándo está disponible?",
+            "¿Qué cursos puede enseñar Merino y en qué horarios?",
             "¿Quién tiene disponibilidad los lunes de 9 a 13?",
-            "¿Hay alguien que pueda cubrir Narrativa Audiovisual los martes?",
-        ]
-        for ej in ejemplos:
+            "¿Hay alguien para Narrativa Audiovisual los martes?",
+        ]:
             st.markdown(f"- *{ej}*")
