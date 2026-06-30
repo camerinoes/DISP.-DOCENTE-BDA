@@ -193,8 +193,8 @@ with st.sidebar:
     )
     with st.expander("➕ Propuesta de horarios (opcional)"):
         propuesta_file = st.file_uploader(
-            "Propuesta de horarios (.csv)",
-            type=["csv"],
+            "Propuesta de horarios (.csv o .xlsx)",
+            type=["csv", "xlsx"],
         )
 
     # ── Paso 2 ──────────────────────────────────────────────────────────────
@@ -228,9 +228,26 @@ with st.sidebar:
 
                 conflictos = []
                 if propuesta_file:
-                    with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as tc:
-                        tc.write(propuesta_file.getvalue())
-                        tc_path = tc.name
+                    nombre_prop = propuesta_file.name.lower()
+                    if nombre_prop.endswith(".xlsx"):
+                        # Convertir XLSX a CSV temporal preservando valores como texto
+                        import openpyxl, csv as csv_mod
+                        wb_prop = openpyxl.load_workbook(
+                            io.BytesIO(propuesta_file.getvalue()), data_only=True
+                        )
+                        ws_prop = wb_prop.active
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".csv", delete=False, mode="w",
+                            encoding="utf-8-sig", newline=""
+                        ) as tc:
+                            writer = csv_mod.writer(tc)
+                            for row in ws_prop.iter_rows(values_only=True):
+                                writer.writerow(["" if v is None else str(v) for v in row])
+                            tc_path = tc.name
+                    else:
+                        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as tc:
+                            tc.write(propuesta_file.getvalue())
+                            tc_path = tc.name
                     filas_prop = leer_propuesta(tc_path)
                     conflictos = detectar_conflictos_propuesta(filas_prop)
                     os.unlink(tc_path)
